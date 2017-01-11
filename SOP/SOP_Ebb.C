@@ -9,6 +9,7 @@
 #include <CH/CH_LocalVariable.h>
 #include <UT/UT_Interrupt.h>
 #include <SYS/SYS_Math.h>
+#include <fstream>
 #include <ebb.h>
 
 using namespace UT::Literal;
@@ -103,24 +104,34 @@ SOP_Ebb::run(fpreal t)
       printf("%s\n", luaL_checkstring(L,-1));
     };
 
+    // initialize terra
     terra_Options terra_options;
     memset(&terra_options, 0, sizeof(terra_Options));
     terra_options.usemcjit = 1;
     if(terra_initwithoptions(L, &terra_options))
         return doerror(L);
 
+    // get ebb include directory
     UT_String ebbincludedir;
     getEbbIncludeDir(ebbincludedir, t);
 
-    EbbOptions ebb_options;
-    ebb_options.include_dir = ebbincludedir.c_str();
-    ebb_options.use_gpu     = 0;
-    if(setupebb(L, &ebb_options))
-        return doerror(L);
+    try
+    {
+      // populate ebb options
+      EbbOptions ebb_options;
+      ebb_options.include_dir = ebbincludedir.c_str();
+      ebb_options.use_gpu     = 0;
+      if(setupebb(L, &ebb_options))
+          return doerror(L);
 
-    UT_String ebbcode;
-    getEbbCode(ebbcode, t);
-    if (terra_dostring(L, ebbcode.c_str()))
-        return doerror(L);
-
+      // compile and run ebb code
+      UT_String ebbcode;
+      getEbbCode(ebbcode, t);
+      if (terra_dostring(L, ebbcode.c_str()))
+          return doerror(L);
+    }
+    catch (...)
+    {
+      std::cerr << "Unknown exception" << std::endl;
+    }
 }
